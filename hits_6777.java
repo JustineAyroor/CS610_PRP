@@ -4,9 +4,9 @@ import java.io.*;
 import java.util.*;
 
 class hits_6777{
-    private final int iterations;
-    private final int initialvalue;
-    private final String filename;
+    private int iterations;
+    private int initialvalue;
+    private String filename;
     public int numEdge;
     public int numVertice;
     public int[] outDegreeMatrix;

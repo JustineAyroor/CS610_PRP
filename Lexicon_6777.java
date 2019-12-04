@@ -1,4 +1,6 @@
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.io.*;
+import java.util.*;
+
 
 class Lexicon_6777{
     int maxslots;
@@ -22,12 +24,12 @@ class Lexicon_6777{
         l.maxslots = m;
 
     }
+    
 
     public static void HashPrint(Lexicon_6777 l){
         System.out.print("HASHTABLE --> T\t");
         System.out.print("\tWORDS_ARRAY --> A :");
         for(int item = 0; item < l.words.length;item++){
-            // l.words[item] = '\0';
             System.out.print(l.words[item]);
         }
         System.out.print("\n");
@@ -45,23 +47,26 @@ class Lexicon_6777{
         return (l.WordsSize == l.words.length);
     }
 
-    public static boolean HashEmpty(Lexicon_6777 l){
-        return (l.HtableSize == 0);
+    public static boolean HashEmpty(Lexicon_6777 l, int key){
+        if(l.hashtable[key] == -1){
+            return true;
+        }else{
+            return false;
+        }
     }
 
     public static boolean HashFull(Lexicon_6777 l) {
         return (l.HtableSize == l.hashtable.length);
     }
 
-
-    public static void HashSearch(Lexicon_6777 l, String word){
+    public static int HashSearch(Lexicon_6777 l, String word){
         int i = 0;
         int hashedkey = l.HashMe(word,i);
         int reference = l.hashtable[hashedkey];
         // find in array 
         boolean exist = l.WordsSearch(word.toCharArray(), reference);
         if(exist){
-            System.out.println("Found " + word + " at " + hashedkey + ".");
+            return hashedkey;
         }else{
             do{
                 hashedkey = l.HashMe(word,++i);
@@ -72,71 +77,147 @@ class Lexicon_6777{
                 }
             }while(i<l.maxslots);
             
-            if(exist){
-                System.out.println("Found " + word + " at " + hashedkey + ".");
-            }else{System.out.println("NOT FOUND");}
-            
+            if(exist && i < l.maxslots){
+                return hashedkey;
+            }else{
+                return -1;
+            }           
         }
     }
+    public static int HashDelete(Lexicon_6777 l, String word){
+        // SEARCH FOR KEY IN HASHTABLE
+        int index = HashSearch(l, word);
+        
+        if(index != -1){
+            int ref = l.hashtable[index];
+            // DELETE FROM WORD 
+            l.WordsDelete(word.toCharArray(), ref);
+            // DELETE FROM HASH
+            l.hashtable[index] = -1;
+            l.HtableSize--;
+            return index;
+        }else{
+            return -1;
+        }
 
+    }
+    public double getLF(){
+        double lf = ((double)HtableSize/maxslots);
+        // System.out.println(lf);
+        return lf;
+    }
 
-    public static void HashInsert(Lexicon_6777 l, String word){
+    public static int HashInsert(Lexicon_6777 l, String word){
+        // Check Load Factor
+        if(l.getLF() >= 0.80 || HashFull(l)){
+            // Rehash All 
+            ReHash(l);
+        }
         // GENERATE KEY
         int i = 0;
         int reference = l.WordsSize;
         int hashedkey = l.HashMe(word,i); 
-        int stpIndx = hashedkey;
-        // System.out.println(hashedkey + " : " + reference);
         // CHECK IF KEY IS EMPTY
-        if(l.hashtable[hashedkey] == -1){
+        if(HashEmpty(l, hashedkey)){
             // STORE REFERENCE INTO HASHTABLE IF EMPTY SLOT FOUND
             l.hashtable[hashedkey] = reference;
              // INSERT INTO WORD ARRAY 
             l.WordsInsert(word.toCharArray());
             // UPDATE HASHTABLE SIZE
             l.HtableSize++;
-            // System.out.println(l.HtableSize);
+            return hashedkey;
         }else{
             // Qudratic probing Logic
-            // System.out.println("It is not Empty Finding Another Slot");
             do{
-                hashedkey = l.HashMe(word, ++i);                
-            }while(l.hashtable[hashedkey] != -1 || i < l.maxslots);
-            if(hashedkey == stpIndx){
+                hashedkey = l.HashMe(word.trim(), ++i);
+            }while(!HashEmpty(l, hashedkey) && i < l.maxslots);
+            if(i > l.maxslots){
                 System.out.println("Cannot insert because all Slots Full");
+                return -1;
             }else{
                 // STORE REFERENCE INTO HASHTABLE IF EMPTY SLOT FOUND
                 l.hashtable[hashedkey] = reference;
-                // System.out.println(hashedkey + " : " + reference);
+
                 // INSERT INTO WORD ARRAY 
                 l.WordsInsert(word.toCharArray());
                 l.HtableSize++;
-                // System.out.println(l.HtableSize);
+                return hashedkey;
             }
         }
-    }
-
-    public void ReHashInsert(){
-        // Iterate through A and get the new key to insert it at
 
     }
+
+    public static int[] RehashInsert(Lexicon_6777 l,int[] lT, String word){
+        int i = 0;
+        int reference = l.hashtable[HashSearch(l, word)];
+        int hashedkey = l.HashMe(word.trim(),i); 
+        
+        // CHECK IF KEY IS EMPTY
+        if(lT[hashedkey] == -1){
+            // STORE REFERENCE INTO HASHTABLE IF EMPTY SLOT FOUND
+            lT[hashedkey] = reference;
+        }else{
+            // Qudratic probing Logic
+            do{
+                hashedkey = l.HashMe(word.trim(), ++i);  
+                
+            }while(lT[hashedkey] != -1 && i < l.maxslots);
+            if(i > l.maxslots){
+                System.out.println("Cannot insert because all Slots Full in Rehash");
+            }else{
+                // STORE REFERENCE INTO HASHTABLE IF EMPTY SLOT FOUND
+                lT[hashedkey] = reference;
+            }
+        }
+        return lT;
+    }
+    public static void ReHash(Lexicon_6777 l){
+        
+        int m = 2*l.hashtable.length;
+        l.HtableSize = 0;
+        int[] N_hashTable = new int[m];
+        char[] A_Copy = new char[15*m];
+        for(int i = 0; i < N_hashTable.length; i++){
+            N_hashTable[i] = -1; 
+        }
+        String word = "";
+        // Iterate through A 
+        for(int i = 0; i < l.words.length; i++){
+            if(l.words[i] == '/' ){
+                //get the new key to insert it at store in hashTable copy
+                N_hashTable = RehashInsert(l, N_hashTable,word.trim());
+                word = "";
+                l.HtableSize++;
+            }else if(l.words[i] == '*'){
+                continue;
+            }else{
+                word += l.words[i];
+            }
+        }
+
+        //Make final Assignments
+        l.hashtable = N_hashTable;
+        l.maxslots = m;
+        System.arraycopy(l.words, 0, A_Copy, 0, l.words.length);
+        l.words = A_Copy;
+    }
+    
 
     public void WordsInsert(char[] w){ 
         int stpIndx = (WordsSize + w.length);
-        // System.out.println(stpIndx);
         int wrdCount = 0;
         for(int chars = WordsSize; chars < stpIndx; chars++){
             words[chars] = w[wrdCount++];   
         }
         words[WordsSize+w.length] = '/';
         WordsSize += (w.length+1);
-        // System.out.println(WordsSize);
     }
 
     public boolean WordsSearch(char[] w, int ref){
         int wrdCount = 0;
         boolean found = false;
         int similarityCount = 0;
+        if(ref == -1){ref = 0;}
         for(int i = ref; i < (ref+w.length);i++){
             if(words[i] == w[wrdCount++]){
                 similarityCount += 1;
@@ -149,6 +230,12 @@ class Lexicon_6777{
         return found;
     }
 
+    public void WordsDelete(char[] w, int ref){
+        for(int i = ref; i < (ref+w.length);i++){
+            words[i] = '*';
+        }
+    }
+
     private int HashMe(String word, int index){
         char[] w = word.toCharArray();
         int Ascii_SUM = 0;
@@ -159,30 +246,69 @@ class Lexicon_6777{
         return key;
     }
 
+    public static void HashBatch(Lexicon_6777 l, String filename){
+        String st;
+        try{
+            File file = new File(filename);
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            while ((st = br.readLine()) != null){
+                // System.out.println(st);
+                String Operation = st.substring(0, 2);
+                String WordValue = "";
+                if(st.length() > 2){
+                    WordValue = st.substring(3, st.length());
+                }else{
+                    WordValue = "";
+                }
+                if(Operation.equals("10")){
+                    int index = HashInsert(l, WordValue);
+                    if(index != -1){
+                        // System.out.println("inserted " + WordValue + " at slot : " + index);
+                    }else{
+                        // System.out.println(WordValue + " not Inserted");
+                    }
+                }else if(Operation.equals("11")){
+                    int index = HashDelete(l, WordValue);
+                    if(index != -1){
+                        System.out.println("deleted " + WordValue + " from slot : " + index);
+                    }else{
+                        System.out.println(WordValue + " not found. So not Deleted");
+                    }
+                }else if(Operation.equals("12")){
+                    int index = HashSearch(l, WordValue);
+                    if(index != -1){
+                        System.out.println(WordValue + " found at slot : " + index);
+                    }else{
+                        System.out.println(WordValue + " not found");
+                    }
+                }else if(Operation.equals("13")){
+                    HashPrint(l);
+                    double lf = l.getLF();
+                    System.out.println("Load Factor : lf = " + l.HtableSize + " / " + l.hashtable.length + " ~ " + lf);
+                }else if(Operation.equals("14")){
+                    HashCreate(l, Integer.parseInt(WordValue));
+                }else{
+                    continue;
+                }
+            }
+            br.close();
+        }catch(Exception e){e.printStackTrace();}
+        
+
+    }
+
     public static void main(String[] args) {
         Lexicon_6777 lex = new Lexicon_6777();
-        HashCreate(lex, 11);
-        HashInsert(lex, "alex");
-        HashInsert(lex, "alexadra");
-        // System.out.println(lex.words.length);
-        HashInsert(lex, "justy");
-        HashInsert(lex, "tom");
-        HashInsert(lex, "jerry");
-        HashInsert(lex, "john");
-        HashInsert(lex, "Dom");
-        HashInsert(lex, "justine");
-        HashInsert(lex, "julian");
-        HashInsert(lex, "choco");
-        HashInsert(lex, "loco");
-        HashSearch(lex, "alex");
-        HashSearch(lex, "loco");
-        HashSearch(lex, "choco");
-        HashSearch(lex, "vinay");
-        HashSearch(lex, "justine");
-        // System.out.println(lex.WordsSize);
+
+        // BATCH TESTING
+        HashBatch(lex, "hashBatch.txt");
+
+        // INDIVIDUAL TESTING
+        HashDelete(lex, "julian");
         HashPrint(lex);
-        System.out.println(HashEmpty(lex));
-        System.out.println(HashFull(lex));
+        double lf = lex.getLF();
+        System.out.println("Load Factor : lf = " + lex.HtableSize + " / " + lex.hashtable.length + " ~ " + lf);
+        
     }
 
 }
